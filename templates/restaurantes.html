@@ -1,0 +1,39 @@
+{{define "body"}}
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h2>Restaurantes</h2>
+    <a href="/restaurantes/new" class="btn btn-primary">Adicionar Restaurante</a>
+</div>
+<table class="table table-striped">
+    <thead>
+        <tr>
+            <th>ID</th>
+            <th>Nome</th>
+            <th>Endereço</th>
+            <th>Tipo de Cozinha</th>
+            <th>Horário de Funcionamento</th>
+            <th>Ações</th>
+        </tr>
+    </thead>
+    <tbody>
+        {{range .bodyData}}
+        <tr>
+            <td>{{.ID}}</td>
+            <td>{{.Nome}}</td>
+            <td>{{.Endereco}}</td>
+            <td>{{.TipoCozinha}}</td>
+            <td>{{.HorarioFuncionamento}}</td>
+            <td>
+                <a href="/restaurantes/edit/{{.ID}}" class="btn btn-sm btn-warning">Editar</a>
+                <form action="/restaurantes/delete/{{.ID}}" method="POST" style="display:inline;" onsubmit="return confirm('Tem certeza que deseja deletar este restaurante?');">
+                    <button type="submit" class="btn btn-sm btn-danger">Deletar</button>
+                </form>
+            </td>
+        </tr>
+        {{else}}
+        <tr>
+            <td colspan="6">Nenhum restaurante encontrado.</td>
+        </tr>
+        {{end}}
+    </tbody>
+</table>
+{{end}}
