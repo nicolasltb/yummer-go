@@ -1,3 +1,4 @@
+
 package controllers
 
 import (
@@ -9,11 +10,35 @@ import (
 	"yummer-go/models"
 )
 
-func GetRestaurantesHTML(c *gin.Context) {
+func CreateRestaurante(c *gin.Context) {
+	var restaurante models.Restaurante
+	if err := c.ShouldBindJSON(&restaurante); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	query, err := database.DB.Prepare("INSERT INTO restaurantes (nome, endereco, tipo_cozinha, horario_funcionamento) VALUES (?, ?, ?, ?)")
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	result, err := query.Exec(restaurante.Nome, restaurante.Endereco, restaurante.TipoCozinha, restaurante.HorarioFuncionamento)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	id, _ := result.LastInsertId()
+	restaurante.ID = int(id)
+
+	c.JSON(http.StatusCreated, restaurante)
+}
+
+func GetRestaurantes(c *gin.Context) {
 	var restaurantes []models.Restaurante
 	rows, err := database.DB.Query("SELECT id, nome, endereco, tipo_cozinha, horario_funcionamento FROM restaurantes")
 	if err != nil {
-		c.HTML(http.StatusInternalServerError, "layout.html", gin.H{"error": err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 	defer rows.Close()
@@ -21,94 +46,62 @@ func GetRestaurantesHTML(c *gin.Context) {
 	for rows.Next() {
 		var restaurante models.Restaurante
 		if err := rows.Scan(&restaurante.ID, &restaurante.Nome, &restaurante.Endereco, &restaurante.TipoCozinha, &restaurante.HorarioFuncionamento); err != nil {
-			c.HTML(http.StatusInternalServerError, "layout.html", gin.H{"error": err.Error()})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 			return
 		}
 		restaurantes = append(restaurantes, restaurante)
 	}
-	c.HTML(http.StatusOK, "layout.html", gin.H{
-		"title":    "Restaurantes",
-		"bodyData": restaurantes,
-	})
+
+	c.JSON(http.StatusOK, restaurantes)
 }
 
-func CreateRestauranteHTML(c *gin.Context) {
-	c.HTML(http.StatusOK, "layout.html", gin.H{
-		"title":    "Adicionar Restaurante",
-		"bodyData": models.Restaurante{},
-	})
-}
-
-func EditRestauranteHTML(c *gin.Context) {
-	id, err := strconv.Atoi(c.Param("id"))
-	if err != nil {
-		c.HTML(http.StatusBadRequest, "layout.html", gin.H{"error": "Invalid restaurant ID"})
-		return
-	}
-
+func GetRestaurante(c *gin.Context) {
+	id, _ := strconv.Atoi(c.Param("id"))
 	var restaurante models.Restaurante
-	err = database.DB.QueryRow("SELECT id, nome, endereco, tipo_cozinha, horario_funcionamento FROM restaurantes WHERE id = ?", id).Scan(&restaurante.ID, &restaurante.Nome, &restaurante.Endereco, &restaurante.TipoCozinha, &restaurante.HorarioFuncionamento)
+	err := database.DB.QueryRow("SELECT id, nome, endereco, tipo_cozinha, horario_funcionamento FROM restaurantes WHERE id = ?", id).Scan(&restaurante.ID, &restaurante.Nome, &restaurante.Endereco, &restaurante.TipoCozinha, &restaurante.HorarioFuncionamento)
 	if err != nil {
-		c.HTML(http.StatusInternalServerError, "layout.html", gin.H{"error": "Restaurante not found"})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Restaurante not found"})
 		return
 	}
 
-	c.HTML(http.StatusOK, "layout.html", gin.H{
-		"title":    "Editar Restaurante",
-		"bodyData": restaurante,
-	})
+	c.JSON(http.StatusOK, restaurante)
 }
 
-func SaveRestauranteHTML(c *gin.Context) {
+func UpdateRestaurante(c *gin.Context) {
+	id, _ := strconv.Atoi(c.Param("id"))
 	var restaurante models.Restaurante
-	restaurante.ID, _ = strconv.Atoi(c.PostForm("id"))
-	restaurante.Nome = c.PostForm("nome")
-	restaurante.Endereco = c.PostForm("endereco")
-	restaurante.TipoCozinha = c.PostForm("tipo_cozinha")
-	restaurante.HorarioFuncionamento = c.PostForm("horario_funcionamento")
-
-	if restaurante.ID == 0 { // Create new
-		query, err := database.DB.Prepare("INSERT INTO restaurantes (nome, endereco, tipo_cozinha, horario_funcionamento) VALUES (?, ?, ?, ?)")
-		if err != nil {
-			c.HTML(http.StatusInternalServerError, "layout.html", gin.H{"error": err.Error()})
-			return
-		}
-		_, err = query.Exec(restaurante.Nome, restaurante.Endereco, restaurante.TipoCozinha, restaurante.HorarioFuncionamento)
-		if err != nil {
-			c.HTML(http.StatusInternalServerError, "layout.html", gin.H{"error": err.Error()})
-			return
-		}
-	} else { // Update existing
-		query, err := database.DB.Prepare("UPDATE restaurantes SET nome = ?, endereco = ?, tipo_cozinha = ?, horario_funcionamento = ? WHERE id = ?")
-		if err != nil {
-			c.HTML(http.StatusInternalServerError, "layout.html", gin.H{"error": err.Error()})
-			return
-		}
-		_, err = query.Exec(restaurante.Nome, restaurante.Endereco, restaurante.TipoCozinha, restaurante.HorarioFuncionamento, restaurante.ID)
-		if err != nil {
-			c.HTML(http.StatusInternalServerError, "layout.html", gin.H{"error": err.Error()})
-			return
-		}
-	}
-	c.Redirect(http.StatusFound, "/restaurantes")
-}
-
-func DeleteRestauranteHTML(c *gin.Context) {
-	id, err := strconv.Atoi(c.Param("id"))
-	if err != nil {
-		c.HTML(http.StatusBadRequest, "layout.html", gin.H{"error": "Invalid restaurant ID"})
+	if err := c.ShouldBindJSON(&restaurante); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 
+	query, err := database.DB.Prepare("UPDATE restaurantes SET nome = ?, endereco = ?, tipo_cozinha = ?, horario_funcionamento = ? WHERE id = ?")
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	_, err = query.Exec(restaurante.Nome, restaurante.Endereco, restaurante.TipoCozinha, restaurante.HorarioFuncionamento, id)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	restaurante.ID = id
+	c.JSON(http.StatusOK, restaurante)
+}
+
+func DeleteRestaurante(c *gin.Context) {
+	id, _ := strconv.Atoi(c.Param("id"))
 	query, err := database.DB.Prepare("DELETE FROM restaurantes WHERE id = ?")
 	if err != nil {
-		c.HTML(http.StatusInternalServerError, "layout.html", gin.H{"error": err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 	_, err = query.Exec(id)
 	if err != nil {
-		c.HTML(http.StatusInternalServerError, "layout.html", gin.H{"error": err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
-	c.Redirect(http.StatusFound, "/restaurantes")
+
+	c.JSON(http.StatusOK, gin.H{"message": "Restaurante deleted successfully"})
 }

@@ -1,3 +1,4 @@
+
 package controllers
 
 import (
@@ -9,11 +10,35 @@ import (
 	"yummer-go/models"
 )
 
-func GetMesasHTML(c *gin.Context) {
+func CreateMesa(c *gin.Context) {
+	var mesa models.Mesa
+	if err := c.ShouldBindJSON(&mesa); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	query, err := database.DB.Prepare("INSERT INTO mesas (restaurante_id, numero, capacidade, disponivel) VALUES (?, ?, ?, ?)")
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	result, err := query.Exec(mesa.RestauranteID, mesa.Numero, mesa.Capacidade, mesa.Disponivel)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	id, _ := result.LastInsertId()
+	mesa.ID = int(id)
+
+	c.JSON(http.StatusCreated, mesa)
+}
+
+func GetMesas(c *gin.Context) {
 	var mesas []models.Mesa
 	rows, err := database.DB.Query("SELECT id, restaurante_id, numero, capacidade, disponivel FROM mesas")
 	if err != nil {
-		c.HTML(http.StatusInternalServerError, "layout.html", gin.H{"error": err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 	defer rows.Close()
@@ -21,93 +46,62 @@ func GetMesasHTML(c *gin.Context) {
 	for rows.Next() {
 		var mesa models.Mesa
 		if err := rows.Scan(&mesa.ID, &mesa.RestauranteID, &mesa.Numero, &mesa.Capacidade, &mesa.Disponivel); err != nil {
-			c.HTML(http.StatusInternalServerError, "layout.html", gin.H{"error": err.Error()})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 			return
 		}
 		mesas = append(mesas, mesa)
 	}
-	c.HTML(http.StatusOK, "layout.html", gin.H{
-		"title":    "Mesas",
-		"bodyData": mesas,
-	})
+
+	c.JSON(http.StatusOK, mesas)
 }
 
-func CreateMesaHTML(c *gin.Context) {
-	c.HTML(http.StatusOK, "layout.html", gin.H{
-		"title":    "Adicionar Mesa",
-		"bodyData": models.Mesa{},
-	})
-}
-
-func EditMesaHTML(c *gin.Context) {
-	id, err := strconv.Atoi(c.Param("id"))
-	if err != nil {
-		c.HTML(http.StatusBadRequest, "layout.html", gin.H{"error": "Invalid mesa ID"})
-		return
-	}
-
+func GetMesa(c *gin.Context) {
+	id, _ := strconv.Atoi(c.Param("id"))
 	var mesa models.Mesa
-	err = database.DB.QueryRow("SELECT id, restaurante_id, numero, capacidade, disponivel FROM mesas WHERE id = ?", id).Scan(&mesa.ID, &mesa.RestauranteID, &mesa.Numero, &mesa.Capacidade, &mesa.Disponivel)
+	err := database.DB.QueryRow("SELECT id, restaurante_id, numero, capacidade, disponivel FROM mesas WHERE id = ?", id).Scan(&mesa.ID, &mesa.RestauranteID, &mesa.Numero, &mesa.Capacidade, &mesa.Disponivel)
 	if err != nil {
-		c.HTML(http.StatusInternalServerError, "layout.html", gin.H{"error": "Mesa not found"})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Mesa not found"})
 		return
 	}
 
-	c.HTML(http.StatusOK, "layout.html", gin.H{
-		"title":    "Editar Mesa",
-		"bodyData": mesa,
-	})
+	c.JSON(http.StatusOK, mesa)
 }
 
-func SaveMesaHTML(c *gin.Context) {
+func UpdateMesa(c *gin.Context) {
+	id, _ := strconv.Atoi(c.Param("id"))
 	var mesa models.Mesa
-	mesa.ID, _ = strconv.Atoi(c.PostForm("id"))
-	mesa.RestauranteID, _ = strconv.Atoi(c.PostForm("restaurante_id"))
-	mesa.Numero, _ = strconv.Atoi(c.PostForm("numero"))
-	mesa.Capacidade, _ = strconv.Atoi(c.PostForm("capacidade"))
-	mesa.Disponivel = c.PostForm("disponivel") == "true"
-
-	if mesa.ID == 0 { // Create new
-		query, err := database.DB.Prepare("INSERT INTO mesas (restaurante_id, numero, capacidade, disponivel) VALUES (?, ?, ?, ?)")
-		if err != nil {
-			c.HTML(http.StatusInternalServerError, "layout.html", gin.H{"error": err.Error()})
-			return
-		}
-		_, err = query.Exec(mesa.RestauranteID, mesa.Numero, mesa.Capacidade, mesa.Disponivel)
-		if err != nil {
-			c.HTML(http.StatusInternalServerError, "layout.html", gin.H{"error": err.Error()})
-			return		}
-	} else { // Update existing
-		query, err := database.DB.Prepare("UPDATE mesas SET restaurante_id = ?, numero = ?, capacidade = ?, disponivel = ? WHERE id = ?")
-		if err != nil {
-			c.HTML(http.StatusInternalServerError, "layout.html", gin.H{"error": err.Error()})
-			return
-		}
-		_, err = query.Exec(mesa.RestauranteID, mesa.Numero, mesa.Capacidade, mesa.Disponivel, mesa.ID)
-		if err != nil {
-			c.HTML(http.StatusInternalServerError, "layout.html", gin.H{"error": err.Error()})
-			return
-		}
-	}
-	c.Redirect(http.StatusFound, "/mesas")
-}
-
-func DeleteMesaHTML(c *gin.Context) {
-	id, err := strconv.Atoi(c.Param("id"))
-	if err != nil {
-		c.HTML(http.StatusBadRequest, "layout.html", gin.H{"error": "Invalid mesa ID"})
+	if err := c.ShouldBindJSON(&mesa); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 
+	query, err := database.DB.Prepare("UPDATE mesas SET restaurante_id = ?, numero = ?, capacidade = ?, disponivel = ? WHERE id = ?")
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	_, err = query.Exec(mesa.RestauranteID, mesa.Numero, mesa.Capacidade, mesa.Disponivel, id)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	mesa.ID = id
+	c.JSON(http.StatusOK, mesa)
+}
+
+func DeleteMesa(c *gin.Context) {
+	id, _ := strconv.Atoi(c.Param("id"))
 	query, err := database.DB.Prepare("DELETE FROM mesas WHERE id = ?")
 	if err != nil {
-		c.HTML(http.StatusInternalServerError, "layout.html", gin.H{"error": err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 	_, err = query.Exec(id)
 	if err != nil {
-		c.HTML(http.StatusInternalServerError, "layout.html", gin.H{"error": err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
-	c.Redirect(http.StatusFound, "/mesas")
+
+	c.JSON(http.StatusOK, gin.H{"message": "Mesa deleted successfully"})
 }

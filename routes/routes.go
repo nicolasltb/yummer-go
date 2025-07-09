@@ -1,4 +1,3 @@
-
 package routes
 
 import (
@@ -7,30 +6,39 @@ import (
 )
 
 func SetupRoutes(router *gin.Engine) {
-	router.GET("/", func(c *gin.Context) {
-		c.HTML(200, "index.html", nil)
-	})
-	router.GET("/clientes", controllers.GetClientesHTML)
-	router.GET("/clientes/new", controllers.CreateClienteHTML)
-	router.GET("/clientes/edit/:id", controllers.EditClienteHTML)
-	router.POST("/clientes/save", controllers.SaveClienteHTML)
-	router.POST("/clientes/delete/:id", controllers.DeleteClienteHTML)
+	clienteRoutes := router.Group("/clientes")
+	{
+		clienteRoutes.POST("/", controllers.CreateCliente)
+		clienteRoutes.GET("/", controllers.GetClientes)
+		clienteRoutes.GET("/id", controllers.GetCliente)
+		clienteRoutes.PUT("/id", controllers.UpdateCliente)
+		clienteRoutes.DELETE("/id", controllers.DeleteCliente)
+	}
 
-	router.GET("/restaurantes", controllers.GetRestaurantesHTML)
-	router.GET("/restaurantes/new", controllers.CreateRestauranteHTML)
-	router.GET("/restaurantes/edit/:id", controllers.EditRestauranteHTML)
-	router.POST("/restaurantes/save", controllers.SaveRestauranteHTML)
-	router.POST("/restaurantes/delete/:id", controllers.DeleteRestauranteHTML)
+	restauranteRoutes := router.Group("/restaurantes")
+	{
+		restauranteRoutes.POST("/", controllers.CreateRestaurante)
+		restauranteRoutes.GET("/", controllers.GetRestaurantes)
+		restauranteRoutes.GET("/id", controllers.GetRestaurante)
+		restauranteRoutes.PUT("/id", controllers.UpdateRestaurante)
+		restauranteRoutes.DELETE("/id", controllers.DeleteRestaurante)
+	}
 
-	router.GET("/mesas", controllers.GetMesasHTML)
-	router.GET("/mesas/new", controllers.CreateMesaHTML)
-	router.GET("/mesas/edit/:id", controllers.EditMesaHTML)
-	router.POST("/mesas/save", controllers.SaveMesaHTML)
-	router.POST("/mesas/delete/:id", controllers.DeleteMesaHTML)
+	mesaRoutes := router.Group("/mesas")
+	{
+		mesaRoutes.POST("/", controllers.CreateMesa)
+		mesaRoutes.GET("/", controllers.GetMesas)
+		mesaRoutes.GET("/id", controllers.GetMesa)
+		mesaRoutes.PUT("/id", controllers.UpdateMesa)
+		mesaRoutes.DELETE("/id", controllers.DeleteMesa)
+	}
 
-	router.GET("/reservas", controllers.GetReservasHTML)
-	router.GET("/reservas/new", controllers.CreateReservaHTML)
-	router.GET("/reservas/edit/:id", controllers.EditReservaHTML)
-	router.POST("/reservas/save", controllers.SaveReservaHTML)
-	router.POST("/reservas/delete/:id", controllers.DeleteReservaHTML)
+	reservaRoutes := router.Group("/reservas")
+	{
+		reservaRoutes.POST("/", controllers.CreateReserva)
+		reservaRoutes.GET("/", controllers.GetReservas)
+		reservaRoutes.GET("/id", controllers.GetReserva)
+		reservaRoutes.PUT("/id", controllers.UpdateReserva)
+		reservaRoutes.DELETE("/id", controllers.DeleteReserva)
+	}
 }

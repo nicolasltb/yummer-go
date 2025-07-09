@@ -1,20 +1,44 @@
+
 package controllers
 
 import (
 	"net/http"
 	"strconv"
-	"time"
 
 	"github.com/gin-gonic/gin"
 	"yummer-go/database"
 	"yummer-go/models"
 )
 
-func GetReservasHTML(c *gin.Context) {
+func CreateReserva(c *gin.Context) {
+	var reserva models.Reserva
+	if err := c.ShouldBindJSON(&reserva); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	query, err := database.DB.Prepare("INSERT INTO reservas (cliente_id, mesa_id, data_hora, numero_pessoas) VALUES (?, ?, ?, ?)")
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	result, err := query.Exec(reserva.ClienteID, reserva.MesaID, reserva.DataHora, reserva.NumeroPessoas)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	id, _ := result.LastInsertId()
+	reserva.ID = int(id)
+
+	c.JSON(http.StatusCreated, reserva)
+}
+
+func GetReservas(c *gin.Context) {
 	var reservas []models.Reserva
 	rows, err := database.DB.Query("SELECT id, cliente_id, mesa_id, data_hora, numero_pessoas FROM reservas")
 	if err != nil {
-		c.HTML(http.StatusInternalServerError, "layout.html", gin.H{"error": err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 	defer rows.Close()
@@ -22,101 +46,62 @@ func GetReservasHTML(c *gin.Context) {
 	for rows.Next() {
 		var reserva models.Reserva
 		if err := rows.Scan(&reserva.ID, &reserva.ClienteID, &reserva.MesaID, &reserva.DataHora, &reserva.NumeroPessoas); err != nil {
-			c.HTML(http.StatusInternalServerError, "layout.html", gin.H{"error": err.Error()})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 			return
 		}
 		reservas = append(reservas, reserva)
 	}
-	c.HTML(http.StatusOK, "layout.html", gin.H{
-		"title":    "Reservas",
-		"bodyData": reservas,
-	})
+
+	c.JSON(http.StatusOK, reservas)
 }
 
-func CreateReservaHTML(c *gin.Context) {
-	c.HTML(http.StatusOK, "layout.html", gin.H{
-		"title":    "Adicionar Reserva",
-		"bodyData": models.Reserva{},
-	})
-}
-
-func EditReservaHTML(c *gin.Context) {
-	id, err := strconv.Atoi(c.Param("id"))
-	if err != nil {
-		c.HTML(http.StatusBadRequest, "layout.html", gin.H{"error": "Invalid reserva ID"})
-		return
-	}
-
+func GetReserva(c *gin.Context) {
+	id, _ := strconv.Atoi(c.Param("id"))
 	var reserva models.Reserva
-	err = database.DB.QueryRow("SELECT id, cliente_id, mesa_id, data_hora, numero_pessoas FROM reservas WHERE id = ?", id).Scan(&reserva.ID, &reserva.ClienteID, &reserva.MesaID, &reserva.DataHora, &reserva.NumeroPessoas)
+	err := database.DB.QueryRow("SELECT id, cliente_id, mesa_id, data_hora, numero_pessoas FROM reservas WHERE id = ?", id).Scan(&reserva.ID, &reserva.ClienteID, &reserva.MesaID, &reserva.DataHora, &reserva.NumeroPessoas)
 	if err != nil {
-		c.HTML(http.StatusInternalServerError, "layout.html", gin.H{"error": "Reserva not found"})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Reserva not found"})
 		return
 	}
 
-	c.HTML(http.StatusOK, "layout.html", gin.H{
-		"title":    "Editar Reserva",
-		"bodyData": reserva,
-	})
+	c.JSON(http.StatusOK, reserva)
 }
 
-func SaveReservaHTML(c *gin.Context) {
+func UpdateReserva(c *gin.Context) {
+	id, _ := strconv.Atoi(c.Param("id"))
 	var reserva models.Reserva
-	reserva.ID, _ = strconv.Atoi(c.PostForm("id"))
-	reserva.ClienteID, _ = strconv.Atoi(c.PostForm("cliente_id"))
-	reserva.MesaID, _ = strconv.Atoi(c.PostForm("mesa_id"))
-	reserva.NumeroPessoas, _ = strconv.Atoi(c.PostForm("numero_pessoas"))
-
-	dataHoraStr := c.PostForm("data_hora")
-	parsedTime, err := time.Parse("2006-01-02T15:04", dataHoraStr)
-	if err != nil {
-		c.HTML(http.StatusBadRequest, "layout.html", gin.H{"error": "Invalid date/time format"})
+	if err := c.ShouldBindJSON(&reserva); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
-	reserva.DataHora = parsedTime
 
-	if reserva.ID == 0 { // Create new
-		query, err := database.DB.Prepare("INSERT INTO reservas (cliente_id, mesa_id, data_hora, numero_pessoas) VALUES (?, ?, ?, ?)")
-		if err != nil {
-			c.HTML(http.StatusInternalServerError, "layout.html", gin.H{"error": err.Error()})
-			return
-		}
-		_, err = query.Exec(reserva.ClienteID, reserva.MesaID, reserva.DataHora, reserva.NumeroPessoas)
-		if err != nil {
-			c.HTML(http.StatusInternalServerError, "layout.html", gin.H{"error": err.Error()})
-			return
-		}
-	} else { // Update existing
-		query, err := database.DB.Prepare("UPDATE reservas SET cliente_id = ?, mesa_id = ?, data_hora = ?, numero_pessoas = ? WHERE id = ?")
-		if err != nil {
-			c.HTML(http.StatusInternalServerError, "layout.html", gin.H{"error": err.Error()})
-			return
-		}
-		_, err = query.Exec(reserva.ClienteID, reserva.MesaID, reserva.DataHora, reserva.NumeroPessoas, reserva.ID)
-		if err != nil {
-			c.HTML(http.StatusInternalServerError, "layout.html", gin.H{"error": err.Error()})
-			return
-		}
+	query, err := database.DB.Prepare("UPDATE reservas SET cliente_id = ?, mesa_id = ?, data_hora = ?, numero_pessoas = ? WHERE id = ?")
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
 	}
-	c.Redirect(http.StatusFound, "/reservas")
+	_, err = query.Exec(reserva.ClienteID, reserva.MesaID, reserva.DataHora, reserva.NumeroPessoas, id)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	reserva.ID = id
+	c.JSON(http.StatusOK, reserva)
 }
 
-func DeleteReservaHTML(c *gin.Context) {
-	id, err := strconv.Atoi(c.Param("id"))
-	if err != nil {
-		c.HTML(http.StatusBadRequest, "layout.html", gin.H{"error": "Invalid reserva ID"})
-		return
-	}
-
+func DeleteReserva(c *gin.Context) {
+	id, _ := strconv.Atoi(c.Param("id"))
 	query, err := database.DB.Prepare("DELETE FROM reservas WHERE id = ?")
 	if err != nil {
-		c.HTML(http.StatusInternalServerError, "layout.html", gin.H{"error": err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 	_, err = query.Exec(id)
 	if err != nil {
-		c.HTML(http.StatusInternalServerError, "layout.html", gin.H{"error": err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
-	c.Redirect(http.StatusFound, "/reservas")
+
+	c.JSON(http.StatusOK, gin.H{"message": "Reserva deleted successfully"})
 }
