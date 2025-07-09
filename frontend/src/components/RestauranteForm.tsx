@@ -52,12 +52,20 @@ const RestauranteForm: React.FC = () => {
     try {
       const method = restaurante.id ? 'PUT' : 'POST';
       const url = restaurante.id ? `/restaurantes/${restaurante.id}` : '/restaurantes';
+      let bodyData: Omit<Restaurante, 'id'> | Restaurante;
+      if (method === 'POST') {
+        const { id, ...rest } = restaurante;
+        bodyData = rest;
+      } else {
+        bodyData = restaurante;
+      }
+
       const response = await fetch(url, {
         method,
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(restaurante),
+        body: JSON.stringify(bodyData),
       });
 
       if (!response.ok) {

@@ -1,7 +1,9 @@
 # Dockerfile for the Go backend
 
-# Stage 1: Build the Go application
-FROM golang:1.24-alpine AS builder
+FROM golang:1.24-alpine
+
+# Install build tools for CGO (required by go-sqlite3)
+RUN apk add --no-cache gcc musl-dev
 
 WORKDIR /app
 
@@ -13,16 +15,8 @@ RUN go mod download
 # Copy the rest of the application source code
 COPY . .
 
-# Build the application
+# Build the application (CGO is enabled by default here)
 RUN go build -o yummer-go .
-
-# Stage 2: Create the final lightweight image
-FROM alpine:latest
-
-WORKDIR /app
-
-# Copy the compiled application from the builder stage
-COPY --from=builder /app/yummer-go .
 
 # Expose the port the application listens on
 EXPOSE 8080

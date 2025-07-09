@@ -55,12 +55,20 @@ const ReservaForm: React.FC = () => {
     try {
       const method = reserva.id ? 'PUT' : 'POST';
       const url = reserva.id ? `/reservas/${reserva.id}` : '/reservas';
+      let bodyData: Omit<Reserva, 'id'> | Reserva;
+      if (method === 'POST') {
+        const { id, ...rest } = reserva;
+        bodyData = rest;
+      } else {
+        bodyData = reserva;
+      }
+
       const response = await fetch(url, {
         method,
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(reserva),
+        body: JSON.stringify(bodyData),
       });
 
       if (!response.ok) {

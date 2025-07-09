@@ -50,12 +50,20 @@ const ClienteForm: React.FC = () => {
     try {
       const method = cliente.id ? 'PUT' : 'POST';
       const url = cliente.id ? `/clientes/${cliente.id}` : '/clientes';
+      let bodyData: Omit<Cliente, 'id'> | Cliente;
+      if (method === 'POST') {
+        const { id, ...rest } = cliente;
+        bodyData = rest;
+      } else {
+        bodyData = cliente;
+      }
+
       const response = await fetch(url, {
         method,
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(cliente),
+        body: JSON.stringify(bodyData),
       });
 
       if (!response.ok) {

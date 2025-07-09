@@ -52,12 +52,20 @@ const MesaForm: React.FC = () => {
     try {
       const method = mesa.id ? 'PUT' : 'POST';
       const url = mesa.id ? `/mesas/${mesa.id}` : '/mesas';
+      let bodyData: Omit<Mesa, 'id'> | Mesa;
+      if (method === 'POST') {
+        const { id, ...rest } = mesa;
+        bodyData = rest;
+      } else {
+        bodyData = mesa;
+      }
+
       const response = await fetch(url, {
         method,
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(mesa),
+        body: JSON.stringify(bodyData),
       });
 
       if (!response.ok) {
